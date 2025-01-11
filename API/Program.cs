@@ -1,3 +1,5 @@
+using Application.Activities;
+using Application.Core;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
 
@@ -13,6 +15,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<DataContext>(opt => {
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(List.Handler).Assembly));
+builder.Services.AddAutoMapper(typeof(MappingProfiles).Assembly);
 
 var app = builder.Build();
 
@@ -35,6 +39,7 @@ var services = scope.ServiceProvider;
 try {
     var context = services.GetRequiredService<DataContext>();
     await context.Database.MigrateAsync();
+    await Seed.SeedData(context);
 } catch (Exception ex) {
     var logger = services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "An error has ocurred during migration");
