@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using API.DTOs;
 using API.Services;
 using Domain;
@@ -55,6 +56,13 @@ namespace API.Controllers
             var result = await _userManager.CreateAsync(user, registerDto.Password);
             if(result.Succeeded) return CreateUserObject(user);
             return BadRequest(result.Errors);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<ActionResult<UserDto>> GetCurrentUser() {
+            var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Email == User.FindFirstValue(ClaimTypes.Email));
+            return CreateUserObject(user);
         }
 
         private UserDto CreateUserObject(AppUser user)
