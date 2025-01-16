@@ -33,6 +33,8 @@ namespace API.Controllers
             return Unauthorized();
         }
 
+        
+
         private UserDto CreateUserObject(AppUser user)
         {
             return new UserDto
