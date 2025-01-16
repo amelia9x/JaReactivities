@@ -33,7 +33,29 @@ namespace API.Controllers
             return Unauthorized();
         }
 
-        
+        [AllowAnonymous]
+        [HttpPost("register")]
+        public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto) {
+            if(await _userManager.Users.AnyAsync(x => x.UserName == registerDto.UserName)) {
+                ModelState.AddModelError("username", "Username is already taken");
+                return ValidationProblem();
+            }
+
+            if(await _userManager.Users.AnyAsync(x => x.Email == registerDto.Email)) {
+                ModelState.AddModelError("email", "Email has been taken");
+                return ValidationProblem();
+            }
+
+            var user = new AppUser() {
+                UserName = registerDto.UserName,
+                DisplayName = registerDto.DisplayName,
+                Email = registerDto.Email
+            };
+
+            var result = await _userManager.CreateAsync(user, registerDto.Password);
+            if(result.Succeeded) return CreateUserObject(user);
+            return BadRequest(result.Errors);
+        }
 
         private UserDto CreateUserObject(AppUser user)
         {
