@@ -4,7 +4,6 @@ using Application.Interfaces;
 using Domain;
 using FluentValidation;
 using MediatR;
-using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
 
