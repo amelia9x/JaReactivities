@@ -14,7 +14,10 @@ namespace Application.Core
             CreateMap<ActivityAttendee, AttendeeDto>()
                 .ForMember(o => o.UserName, x => x.MapFrom(a => a.AppUser.UserName))
                 .ForMember(o => o.DisplayName, x => x.MapFrom(a => a.AppUser.DisplayName))
-                .ForMember(o => o.Bio, x => x.MapFrom(a => a.AppUser.Bio));
+                .ForMember(o => o.Bio, x => x.MapFrom(a => a.AppUser.Bio))
+                .ForMember(o => o.Image, x => x.MapFrom(a => a.AppUser.Photos.FirstOrDefault(x => x.IsMain).Url));
+            CreateMap<AppUser, Profiles.Profile>()
+                .ForMember(d => d.Image, o => o.MapFrom(x => x.Photos.FirstOrDefault(a => a.IsMain).Url));
         }
     }
 }
