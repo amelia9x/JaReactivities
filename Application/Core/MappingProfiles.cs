@@ -8,6 +8,8 @@ namespace Application.Core
     {
         public MappingProfiles() {
             CreateMap<Activity, Activity>();
+            // CreateMap<Profiles.Profile, AppUser>()
+            //     .ForMember(x => x.UserName, a => a.Ignore());
             CreateMap<Activity, ActivityDto>()
                 .ForMember(o => o.HostUserName, 
                     t => t.MapFrom(x => x.Attendees.FirstOrDefault(a => a.IsHost).AppUser.UserName));
