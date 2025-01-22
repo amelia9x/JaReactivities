@@ -22,7 +22,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("Cors");
 app.UseAuthentication();
 app.UseAuthorization();
 
