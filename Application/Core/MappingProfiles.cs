@@ -19,7 +19,10 @@ namespace Application.Core
                 .ForMember(o => o.UserName, x => x.MapFrom(a => a.AppUser.UserName))
                 .ForMember(o => o.DisplayName, x => x.MapFrom(a => a.AppUser.DisplayName))
                 .ForMember(o => o.Bio, x => x.MapFrom(a => a.AppUser.Bio))
-                .ForMember(o => o.Image, x => x.MapFrom(a => a.AppUser.Photos.FirstOrDefault(x => x.IsMain).Url));
+                .ForMember(o => o.Image, x => x.MapFrom(a => a.AppUser.Photos.FirstOrDefault(x => x.IsMain).Url))
+                .ForMember(o => o.FollowersCount, x => x.MapFrom(a => a.AppUser.Followers.Count))
+                .ForMember(o => o.FollowingCount, x => x.MapFrom(a => a.AppUser.Followings.Count))
+                .ForMember(o => o.Following, x => x.MapFrom(a => a.AppUser.Followers.Any(c => c.Observer.UserName == currentUsername)));
             CreateMap<AppUser, Profiles.Profile>()
                 .ForMember(d => d.Image, o => o.MapFrom(x => x.Photos.FirstOrDefault(a => a.IsMain).Url))
                 .ForMember(d => d.FollowersCount, o => o.MapFrom(x => x.Followers.Count))
