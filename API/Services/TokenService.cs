@@ -37,5 +37,12 @@ namespace API.Services
 
             return tokenHandler.WriteToken(token);
         }
+
+        public RefreshToken GenerateRefreshToken() {
+            var randomNumber = new byte[32];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return new RefreshToken{ Token = Convert.ToBase64String(randomNumber) };
+        }
     }
 }
