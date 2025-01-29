@@ -15,10 +15,16 @@ namespace API.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly TokenService _token;
-        public AccountController(UserManager<AppUser> userManager, TokenService token)
+        private readonly IConfiguration _config;
+        private readonly HttpClient _httpClient;
+        public AccountController(UserManager<AppUser> userManager, TokenService token, IConfiguration config)
         {
+            _config = config;
             _token = token;
             _userManager = userManager;
+            _httpClient = new HttpClient {
+                BaseAddress = new System.Uri("https://graph.facebook.com/v21.0/")
+            };
         }
 
         [AllowAnonymous]
@@ -30,7 +36,8 @@ namespace API.Controllers
             if (user == null) return Unauthorized();
 
             var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
-            if (result) {
+            if (result)
+            {
                 await SetRefreshToken(user);
                 return CreateUserObject(user);
             }
@@ -40,34 +47,80 @@ namespace API.Controllers
 
         [AllowAnonymous]
         [HttpPost("register")]
-        public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto) {
-            if(await _userManager.Users.AnyAsync(x => x.UserName == registerDto.UserName)) {
+        public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
+        {
+            if (await _userManager.Users.AnyAsync(x => x.UserName == registerDto.UserName))
+            {
                 ModelState.AddModelError("username", "Username is already taken");
                 return ValidationProblem();
             }
 
-            if(await _userManager.Users.AnyAsync(x => x.Email == registerDto.Email)) {
+            if (await _userManager.Users.AnyAsync(x => x.Email == registerDto.Email))
+            {
                 ModelState.AddModelError("email", "Email has been taken");
                 return ValidationProblem();
             }
 
-            var user = new AppUser() {
+            var user = new AppUser()
+            {
                 UserName = registerDto.UserName,
                 DisplayName = registerDto.DisplayName,
                 Email = registerDto.Email
             };
 
             var result = await _userManager.CreateAsync(user, registerDto.Password);
-            if(result.Succeeded) {
+            if (result.Succeeded)
+            {
                 await SetRefreshToken(user);
                 return CreateUserObject(user);
             }
             return BadRequest(result.Errors);
         }
 
+        [AllowAnonymous]
+        [HttpPost("fbLogin/accessToken={accessToken}")]
+        public async Task<ActionResult<UserDto>> FacebookLogin(string accessToken)
+        {
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                return BadRequest("Access token is required");
+            }
+
+            var fbVerifyKeys = _config["Facebook:AppId"] + "|" + _config["Facebook:AppSecret"];
+            var verifyTokenResponse = await _httpClient.GetAsync($"debug_token?input_token={accessToken}&access_token={fbVerifyKeys}");
+            if(!verifyTokenResponse.IsSuccessStatusCode) return Unauthorized();
+            var fbUrl = $"me?access_token={accessToken}&fields=name,email,picture.width(100).height(100)";
+            var fbInfo = await _httpClient.GetFromJsonAsync<FacebookDto>(fbUrl);
+            var user = await _userManager.Users.Include(p => p.Photos)
+                .FirstOrDefaultAsync(x => x.Email == fbInfo.Email);
+            
+            if(user != null) return CreateUserObject(user);
+
+            user = new AppUser() {
+                DisplayName = fbInfo.Name,
+                Email = fbInfo.Email,
+                UserName = fbInfo.Email,
+                Photos = new List<Photo> {
+                    new Photo {
+                        IsMain = true,
+                        Url = fbInfo.Picture.Data.Url,
+                        Id = "fb_" + fbInfo.Id
+                    }
+                }
+            };
+
+            var result = await _userManager.CreateAsync(user);
+            if(!result.Succeeded) return BadRequest("Problem creating user account");
+
+            await SetRefreshToken(user);
+            return CreateUserObject(user);
+        }
+
+
         [Authorize]
         [HttpGet]
-        public async Task<ActionResult<UserDto>> GetCurrentUser() {
+        public async Task<ActionResult<UserDto>> GetCurrentUser()
+        {
             var user = await _userManager.Users.Include(x => x.Photos)
                 .FirstOrDefaultAsync(x => x.Email == User.FindFirstValue(ClaimTypes.Email));
             return CreateUserObject(user);
@@ -75,27 +128,30 @@ namespace API.Controllers
 
         [Authorize]
         [HttpPost("refreshToken")]
-        public async Task<ActionResult<UserDto>> RefreshToken() {
+        public async Task<ActionResult<UserDto>> RefreshToken()
+        {
             var refreshToken = Request.Cookies["refreshToken"];
             var user = await _userManager.Users
                 .Include(p => p.RefreshTokens)
                 .Include(p => p.Photos)
                 .FirstOrDefaultAsync(x => x.UserName == User.FindFirstValue(ClaimTypes.Name));
 
-            if(user == null) return Unauthorized();
+            if (user == null) return Unauthorized();
 
             var oldToken = user.RefreshTokens.SingleOrDefault(x => x.Token == refreshToken);
-            if(oldToken != null && !oldToken.IsActive) return Unauthorized();
-            if(oldToken != null) oldToken.Revokes = DateTime.UtcNow;
+            if (oldToken != null && !oldToken.IsActive) return Unauthorized();
+            if (oldToken != null) oldToken.Revokes = DateTime.UtcNow;
             return CreateUserObject(user);
         }
 
-        private async Task SetRefreshToken(AppUser user) {
+        private async Task SetRefreshToken(AppUser user)
+        {
             var refreshToken = _token.GenerateRefreshToken();
             user.RefreshTokens.Add(refreshToken);
             await _userManager.UpdateAsync(user);
 
-            var cookieOptions = new CookieOptions {
+            var cookieOptions = new CookieOptions
+            {
                 HttpOnly = true,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
